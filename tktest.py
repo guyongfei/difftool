@@ -1,5 +1,16 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 from Tkinter import *
 import tkFileDialog
+import tkMessageBox
+import Zfile
+import os
+import sys
+import shutil
+from xml.dom.minidom import parse
+import xml.dom.minidom
+
+current_dir = os.path.split(os.path.realpath(__file__))[0]
 
 file_opt = {
 	'defaultextension':'.zip',
@@ -18,14 +29,6 @@ def chkbtn1_sel():
 def chkbtn2_sel():
 	print 'chkbtn2 changed '+ str(chkvar2.get())
 
-def doquit():
-	exit()
-
-def doit():
-	print 'doit'
-	cmdstrvar.set('adbcccc')
-	cmdentry.config(textvariable = cmdstrvar)
-
 def askopensrcfilename():
 	filename = tkFileDialog.askopenfilename(**file_opt)
 	srcstrvar.set(filename)
@@ -36,8 +39,59 @@ def askopendestfilename():
 	deststrvar.set(filename)
 	destentry.config(textvariable=deststrvar)
 
+def doquit():
+	exit()
+
+def doit():
+	srcfilename = srcstrvar.get()
+	destfilename = deststrvar.get()
+
+	if not os.path.exists(srcfilename) or not os.path.exists(destfilename):
+		tkMessageBox.showerror('错误', '文件不存在')
+	else:
+		tmp_dir = os.path.join(current_dir, 'tmp')
+		if os.path.exists(tmp_dir):
+			shutil.rmtree(tmp_dir)
+		os.mkdir(tmp_dir)
+		tmp_src_dir = str(tmp_dir)+"/src"
+		tmp_dest_dir = str(tmp_dir)+"/dest"
+		Zfile.extract(srcfilename, tmp_src_dir)
+		Zfile.extract(destfilename, tmp_dest_dir)
+		srcxmlfile = tmp_src_dir+'/test.xml'
+		parsexml(srcxmlfile)
+		destxmlfile = tmp_dest_dir+'/test.xml'
+		parsexml(destxmlfile)
+
+		cmdstr = makecmdstr(tmp_src_dir+'/bin/diff.bat')
+		print cmdstr
+		print 'x' + str(os.system(cmdstr))
+
+def makecmdstr(cmdstr0):
+	cmdstr = cmdstr0
+	if chkvar1.get() == 1:
+		cmdstr += ' -chkvar1 '
+	if chkvar2.get() == 1:
+		cmdstr += ' -chkvar2 '
+	if radiovar.get() == 1:
+		cmdstr += ' -mode=qc '
+	elif radiovar.get() == 2:
+		cmdstr += ' -mode=mtk '
+	else:
+		cmdstr += ' -mode=other '
+
+	srcfilename = srcstrvar.get()
+	destfilename = deststrvar.get()
+
+	cmdstr += str(srcfilename+' '+destfilename)
+	return cmdstr
 
 
+def parsexml(xmlfile):
+	DOMTree = xml.dom.minidom.parse(xmlfile)
+	rootnode = DOMTree.documentElement
+	tonode = rootnode.getElementsByTagName('to')[0]
+	tovalue = tonode.childNodes[0].data
+	print tovalue
 
 top = Tk()
 srcframe = Frame(top)
