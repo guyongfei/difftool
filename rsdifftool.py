@@ -9,8 +9,12 @@ import sys
 import shutil
 from xml.dom.minidom import parse
 import xml.dom.minidom
+import subprocess 
 
 current_dir = os.path.split(os.path.realpath(__file__))[0]
+tmp_dir = os.path.join(current_dir, 'tmp')
+tmp_src_dir = str(tmp_dir)+"/src"
+tmp_dest_dir = str(tmp_dir)+"/dest"
 
 file_opt = {
 	'defaultextension':'.zip',
@@ -43,59 +47,59 @@ def doquit():
 	exit()
 
 def domakecmd():
-	cmdstr = makecmdstr('./makecmd')
-	print cmdstr
+	cmdstr = makecmdstr()
+	cmdentry.delete(0.0, END)
+	cmdentry.insert(INSERT, cmdstr)
+	cmdentry.config()
+
 
 def doit():
+	cmdstr = cmdentry.get(0.0, END)
+	print cmdstr
+	if 'ota_from_target_files' not in cmdstr:
+		tkMessageBox.showerror('error','cmd is incorrect!')
+	else:
+		os.chdir(tmp_src_dir)
+		os.system(cmdstr)
+
+def makecmdstr():
 	srcfilename = srcstrvar.get()
 	destfilename = deststrvar.get()
 
 	if not os.path.exists(srcfilename) or not os.path.exists(destfilename):
 		tkMessageBox.showerror('错误', '文件不存在')
 	else:
-		tmp_dir = os.path.join(current_dir, 'tmp')
 		if os.path.exists(tmp_dir):
 			shutil.rmtree(tmp_dir)
 		os.mkdir(tmp_dir)
-		tmp_src_dir = str(tmp_dir)+"/src"
-		tmp_dest_dir = str(tmp_dir)+"/dest"
-		Zfile.extract(srcfilename, tmp_src_dir)
-		Zfile.extract(destfilename, tmp_dest_dir)
-		srcxmlfile = tmp_src_dir+'/test.xml'
-		parsexml(srcxmlfile)
-		destxmlfile = tmp_dest_dir+'/test.xml'
-		parsexml(destxmlfile)
+		
+		unzipsrccmd = r'unzip -o '+srcfilename+' -d '+tmp_src_dir
+		os.system(unzipsrccmd)
+		unzipdestcmd = r'unzip -o '+destfilename+' -d '+tmp_dest_dir
+		os.system(unzipdestcmd)
 
-		cmdstr = makecmdstr(tmp_src_dir+'/bin/diff.bat')
-		print cmdstr
-		print 'x' + str(os.system(cmdstr))
+		srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
+		print parsexml(srcxmlfile)
+		destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
+		print parsexml(destxmlfile)
 
-def makecmdstr(cmdstr0):
-	cmdstr = cmdstr0
-	if chkvar1.get() == 1:
-		cmdstr += ' -chkvar1 '
-	if chkvar2.get() == 1:
-		cmdstr += ' -chkvar2 '
-	if radiovar.get() == 1:
-		cmdstr += ' -mode=qc '
-	elif radiovar.get() == 2:
-		cmdstr += ' -mode=mtk '
-	else:
-		cmdstr += ' -mode=other '
+		srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
+		destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
+		outfile = str(current_dir)+'/update.zip'
 
-	srcfilename = srcstrvar.get()
-	destfilename = deststrvar.get()
-
-	cmdstr += str(srcfilename+' '+destfilename)
-	return cmdstr
+	return tmp_src_dir+'/'+'build/tools/releasetools/ota_from_target_files '+'-v -i '+srcimagezipfile+' '+destimagezipfile+' '+outfile
 
 
 def parsexml(xmlfile):
 	DOMTree = xml.dom.minidom.parse(xmlfile)
 	rootnode = DOMTree.documentElement
-	tonode = rootnode.getElementsByTagName('to')[0]
-	tovalue = tonode.childNodes[0].data
-	print tovalue
+	items = rootnode.getElementsByTagName('Item')
+	for item in items:
+		if item.getAttribute('name') == 'ro.redstone.model':
+			modelvalue = item.getAttribute('value')
+		elif item.getAttribute('name') == 'ro.redstone.version':
+			versionvalue = item.getAttribute('value')
+	return (modelvalue, versionvalue)
 
 EPAD = 3
 
@@ -104,7 +108,7 @@ srclabel = Label(top, text='src: ')
 srcstrvar = StringVar()
 srcentry = Entry(top, bd=5, textvariable=srcstrvar)
 srcbtn = Button(top, text='select', command = askopensrcfilename)
-top.rowconfigure(0,weight=1)
+top.rowconfigure(3,weight=1)
 top.columnconfigure(1,weight=1)
 srclabel.grid(column=0,row=0, padx=EPAD)
 srcentry.grid(column=1,columnspan=15,row=0, sticky=E+W, padx=EPAD)
@@ -120,25 +124,36 @@ destbtn.grid(column=16, row =1, padx=EPAD)
 
 radiovar = IntVar()
 rqualcom = Radiobutton(top, text="Qualcom", variable=radiovar, value=1, command=sel)
-rmtkcom = Radiobutton(top, text="Mtk", variable=radiovar, value=2, command=sel)
-rothercom = Radiobutton(top, text="Other", variable=radiovar, value=3, command=sel)
+rmtk = Radiobutton(top, text="Mtk", variable=radiovar, value=2, command=sel)
+rzx = Radiobutton(top, text="zhanxun", variable=radiovar, value=3, command=sel)
+rother = Radiobutton(top, text="Other", variable=radiovar, value=4, command=sel)
+rqualcom.grid(column=12,row=2, padx=EPAD)
+rmtk.grid(column=13, row=2, padx=EPAD)
+rzx.grid(column=14, row=2, padx=EPAD)
+rother.grid(column=15, row=2, padx=EPAD)
 
-chkvar1 = IntVar()
-chkvar2 = IntVar()
-chkbtn1 = Checkbutton(top, text='checkbox1', variable=chkvar1, onvalue=1, \
-	offvalue=0, command=chkbtn1_sel)
-chkbtn2 = Checkbutton(top, text='checkbox2', variable=chkvar2, onvalue=1, \
-	offvalue=0, command=chkbtn2_sel)
 
-cmdlabel = Label(top, text='cmd:')
+# chkvar1 = IntVar()
+# chkvar2 = IntVar()
+# chkbtn1 = Checkbutton(top, text='checkbox1', variable=chkvar1, onvalue=1, \
+# 	offvalue=0, command=chkbtn1_sel)
+# chkbtn2 = Checkbutton(top, text='checkbox2', variable=chkvar2, onvalue=1, \
+# 	offvalue=0, command=chkbtn2_sel)
+# chkbtn1.grid(column=0, row = 3, padx=EPAD)
+# chkbtn2.grid(column=1, row =3, padx=EPAD)
+
+
 cmdstrvar = StringVar()
-cmdentry = Entry(top, bd=5, textvariable= cmdstrvar)
+cmdentry = Text(top, bd=5)
+cmdentry.grid(column=0, row=3, columnspan=17, sticky=E+W+S+N, padx=EPAD)
 
 
 btncancel = Button(top, text='cancel', command=doquit)
 btnmakecmd = Button(top, text='makeCmd', command=domakecmd)
 btnok = Button(top, text='ok', command=doit)
-
+btncancel.grid(column=14, row=4,  padx=EPAD)
+btnmakecmd.grid(column=15, row=4, padx=EPAD)
+btnok.grid(column=16, row=4, padx=EPAD)
 
 
 # srcframe = Frame(top)
@@ -174,10 +189,10 @@ btnok = Button(top, text='ok', command=doit)
 # radiovar = IntVar()
 # rqualcom = Radiobutton(radioframe, text="Qualcom", variable=radiovar, value=1, command=sel)
 # rqualcom.pack(side=LEFT)
-# rmtkcom = Radiobutton(radioframe, text="Mtk", variable=radiovar, value=2, command=sel)
-# rmtkcom.pack(side=LEFT)
-# rothercom = Radiobutton(radioframe, text="Other", variable=radiovar, value=3, command=sel)
-# rothercom.pack(side=RIGHT)
+# rmtk = Radiobutton(radioframe, text="Mtk", variable=radiovar, value=2, command=sel)
+# rmtk.pack(side=LEFT)
+# rother = Radiobutton(radioframe, text="Other", variable=radiovar, value=3, command=sel)
+# rother.pack(side=RIGHT)
 
 # chkvar1 = IntVar()
 # chkvar2 = IntVar()
@@ -199,6 +214,6 @@ btnok = Button(top, text='ok', command=doit)
 # btn1.pack(side=LEFT)
 # btn2 = Button(btnframe, text='ok', command=doit)
 # btn2.pack(side=RIGHT)
-top.geometry('500x80+20+20')
+top.geometry('800x180+20+20')
 
 top.mainloop()
