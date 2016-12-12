@@ -9,7 +9,7 @@ import sys
 import shutil
 from xml.dom.minidom import parse
 import xml.dom.minidom
-import subprocess 
+import thread
 
 current_dir = os.path.split(os.path.realpath(__file__))[0]
 tmp_dir = os.path.join(current_dir, 'tmp')
@@ -19,7 +19,7 @@ tmp_dest_dir = str(tmp_dir)+"/dest"
 file_opt = {
 	'defaultextension':'.zip',
 	'filetypes':[('all files','.*'),('zip files', '.zip')],
-	'initialdir':'/Users/gutianzi/code/python/guisample/',
+	'initialdir':'/home/fay/code/difftool/zipfiles',
 	'title':'this is a title'
 }
 
@@ -68,24 +68,34 @@ def makecmdstr():
 
 	if not os.path.exists(srcfilename) or not os.path.exists(destfilename):
 		tkMessageBox.showerror('错误', '文件不存在')
+		return ''
 	else:
 		if os.path.exists(tmp_dir):
 			shutil.rmtree(tmp_dir)
 		os.mkdir(tmp_dir)
 		
 		unzipsrccmd = r'unzip -o '+srcfilename+' -d '+tmp_src_dir
-		os.system(unzipsrccmd)
 		unzipdestcmd = r'unzip -o '+destfilename+' -d '+tmp_dest_dir
-		os.system(unzipdestcmd)
+		# try:
+		thread.start_new_thread( runcmd, (unzipsrccmd,) )
+		thread.start_new_thread( runcmd, (unzipdestcmd,) )
+		# except:
+		# 	print "Error: unable to start thread"
 
-		srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
-		print parsexml(srcxmlfile)
-		destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
-		print parsexml(destxmlfile)
+		print 'xxxxxxxxx'
+		return 'xxx'
+   
+		# os.system(unzipsrccmd)
+		# os.system(unzipdestcmd)
 
-		srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
-		destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
-		outfile = str(current_dir)+'/update.zip'
+		# srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
+		# print parsexml(srcxmlfile)
+		# destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
+		# print parsexml(destxmlfile)
+
+		# srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
+		# destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
+		# outfile = str(current_dir)+'/update.zip'
 
 	return tmp_src_dir+'/'+'build/tools/releasetools/ota_from_target_files '+'-v -i '+srcimagezipfile+' '+destimagezipfile+' '+outfile
 
@@ -100,6 +110,9 @@ def parsexml(xmlfile):
 		elif item.getAttribute('name') == 'ro.redstone.version':
 			versionvalue = item.getAttribute('value')
 	return (modelvalue, versionvalue)
+
+def runcmd(cmdstr):
+	os.system(cmdstr)
 
 EPAD = 3
 
