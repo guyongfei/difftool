@@ -10,11 +10,14 @@ import shutil
 from xml.dom.minidom import parse
 import xml.dom.minidom
 import thread
+import time
 
 current_dir = os.path.split(os.path.realpath(__file__))[0]
 tmp_dir = os.path.join(current_dir, 'tmp')
 tmp_src_dir = str(tmp_dir)+"/src"
 tmp_dest_dir = str(tmp_dir)+"/dest"
+status = 0 # 0:inial; 1:unzipping; 2:unzip over; 3:diffing; 4:done
+is_src_dest_unzipped = False
 
 file_opt = {
 	'defaultextension':'.zip',
@@ -47,28 +50,15 @@ def doquit():
 	exit()
 
 def domakecmd():
-	cmdstr = makecmdstr()
-	cmdentry.delete(0.0, END)
-	cmdentry.insert(INSERT, cmdstr)
-	cmdentry.config()
-
-
-def doit():
-	cmdstr = cmdentry.get(0.0, END)
-	print cmdstr
-	if 'ota_from_target_files' not in cmdstr:
-		tkMessageBox.showerror('error','cmd is incorrect!')
-	else:
-		os.chdir(tmp_src_dir)
-		os.system(cmdstr)
-
-def makecmdstr():
 	srcfilename = srcstrvar.get()
 	destfilename = deststrvar.get()
-
-	if not os.path.exists(srcfilename) or not os.path.exists(destfilename):
+	global status
+	print status
+	print isbusy()
+	if isbusy():
+		tkMessageBox.showinfo('信息', '程序正在运行，请耐心等待')
+	elif not os.path.exists(srcfilename) or not os.path.exists(destfilename):
 		tkMessageBox.showerror('错误', '文件不存在')
-		return ''
 	else:
 		if os.path.exists(tmp_dir):
 			shutil.rmtree(tmp_dir)
@@ -76,28 +66,21 @@ def makecmdstr():
 		
 		unzipsrccmd = r'unzip -o '+srcfilename+' -d '+tmp_src_dir
 		unzipdestcmd = r'unzip -o '+destfilename+' -d '+tmp_dest_dir
-		# try:
-		thread.start_new_thread( runcmd, (unzipsrccmd,) )
-		thread.start_new_thread( runcmd, (unzipdestcmd,) )
-		# except:
-		# 	print "Error: unable to start thread"
+		status = 1
+		thread.start_new_thread( unzipfiles, (unzipsrccmd,unzipdestcmd,) )
 
-		print 'xxxxxxxxx'
-		return 'xxx'
-   
-		# os.system(unzipsrccmd)
-		# os.system(unzipdestcmd)
 
-		# srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
-		# print parsexml(srcxmlfile)
-		# destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
-		# print parsexml(destxmlfile)
-
-		# srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
-		# destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
-		# outfile = str(current_dir)+'/update.zip'
-
-	return tmp_src_dir+'/'+'build/tools/releasetools/ota_from_target_files '+'-v -i '+srcimagezipfile+' '+destimagezipfile+' '+outfile
+def doit():
+	cmdstr = cmdentry.get(0.0, END)
+	global status
+	print status
+	if isbusy():
+		tkMessageBox.showinfo('信息', '程序正在运行，请耐心等待')
+	elif 'ota_from_target_files' not in cmdstr:
+		tkMessageBox.showerror('error','cmd is incorrect!')
+	else:
+		status = 3
+		thread.start_new_thread( diffing, (cmdstr,) )
 
 
 def parsexml(xmlfile):
@@ -111,8 +94,57 @@ def parsexml(xmlfile):
 			versionvalue = item.getAttribute('value')
 	return (modelvalue, versionvalue)
 
-def runcmd(cmdstr):
-	os.system(cmdstr)
+def unzipfiles(cmdstrsrc, cmdstrdest):
+	global status
+	cmdentry.delete(0.0, END)
+	cmdentry.insert(INSERT, "正在解压和解析文件，请耐心等待...")
+	cmdentry.config()
+
+	os.system(cmdstrsrc)
+	os.system(cmdstrdest)
+	time.sleep(10)
+
+	# srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
+	# print parsexml(srcxmlfile)
+	# destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
+	# print parsexml(destxmlfile)
+
+	srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
+	destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
+	outfile = str(current_dir)+'/update.zip'
+
+	cmdstr = tmp_src_dir+'/'+'build/tools/releasetools/ota_from_target_files '+'-v -i '+srcimagezipfile+' '+destimagezipfile+' '+outfile
+	cmdentry.delete(0.0, END)
+	cmdentry.insert(INSERT, cmdstr)
+	cmdentry.config()
+	status = 2
+
+	tkMessageBox.showinfo('信息', '解压完成，请点击差分按钮')
+
+def diffing(cmdstrdiff):
+	global status
+	cmdentry.delete(0.0, END)
+	cmdentry.insert(INSERT, "正在生成差分包，请耐心等待...")
+	cmdentry.config()
+
+	os.chdir(tmp_src_dir)
+	os.system(cmdstrdiff)
+
+	cmdentry.delete(0.0, END)
+	cmdentry.insert(INSERT, '差分包生成完成。')
+	cmdentry.config()
+
+	status = 4
+	tkMessageBox.showinfo('信息', '差分包已完成。')
+
+
+def isbusy():
+	global status
+	if status == 1 or status==3:
+		return True
+	else:
+		return False
+
 
 EPAD = 3
 
