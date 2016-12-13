@@ -106,21 +106,29 @@ def unzipfiles(cmdstrsrc, cmdstrdest):
 	cmdentry.delete(0.0, END)
 	cmdentry.insert(INSERT, "正在解压和解析文件，请耐心等待...")
 	cmdentry.config()
+	try:
+		if os.system(cmdstrsrc) != 0 or os.system(cmdstrdest) != 0:
+			cmdentry.delete(0.0, END)
+			cmdentry.insert(INSERT, '解压失败，请重试！')
+			cmdentry.config()
+			status = 0
+			tkMessageBox.showerror('错误', '解压失败，请重试！')
+		else :
+			cmdstr = generatecmdstr()
+			cmdentry.delete(0.0, END)
+			cmdentry.insert(INSERT, cmdstr)
+			cmdentry.config()
+			status = 2
 
-	if os.system(cmdstrsrc) != 0 or os.system(cmdstrdest) != 0:
+			tkMessageBox.showinfo('信息', '解压完成，请点击开始差分按钮')
+	except Exception,e:
+		print e
 		cmdentry.delete(0.0, END)
 		cmdentry.insert(INSERT, '解压失败，请重试！')
 		cmdentry.config()
 		status = 0
 		tkMessageBox.showerror('错误', '解压失败，请重试！')
-	else :
-		cmdstr = generatecmdstr()
-		cmdentry.delete(0.0, END)
-		cmdentry.insert(INSERT, cmdstr)
-		cmdentry.config()
-		status = 2
 
-		tkMessageBox.showinfo('信息', '解压完成，请点击开始差分按钮')
 
 def generatecmdstr():
 	global outfile
@@ -181,6 +189,7 @@ def isbusy():
 EPAD = 3
 
 top = Tk()
+top.title('红石差分工具')
 srclabel = Label(top, text='原包：')
 srcstrvar = StringVar()
 srcentry = Entry(top, bd=5, textvariable=srcstrvar)
