@@ -19,7 +19,6 @@ tmp_dest_dir = str(tmp_dir)+"/dest"
 status = 0 # 0:inial; 1:unzipping; 2:unzip over; 3:diffing; 4:done
 outfile = '' #the output file path
 
-
 file_opt = {
 	'defaultextension':'.zip',
 	'filetypes':[('all files','.*'),('zip files', '.zip')],
@@ -115,12 +114,6 @@ def unzipfiles(cmdstrsrc, cmdstrdest):
 		status = 0
 		tkMessageBox.showerror('错误', '解压失败，请重试！')
 	else :
-
-		# srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
-		# print parsexml(srcxmlfile)
-		# destxmlfile = tmp_dest_dir+'/redstone_fota_info.xml'
-		# print parsexml(destxmlfile)
-
 		cmdstr = generatecmdstr()
 		cmdentry.delete(0.0, END)
 		cmdentry.insert(INSERT, cmdstr)
@@ -130,6 +123,7 @@ def unzipfiles(cmdstrsrc, cmdstrdest):
 		tkMessageBox.showinfo('信息', '解压完成，请点击开始差分按钮')
 
 def generatecmdstr():
+	global outfile
 	cmdstr = tmp_src_dir+'/'+'build/tools/releasetools/ota_from_target_files'
 	if chkverbosevar.get() == 1:
 		cmdstr += ' -v'
@@ -141,7 +135,13 @@ def generatecmdstr():
 
 	srcimagezipfile = tmp_src_dir+'/redstone_target_files.zip'
 	destimagezipfile = tmp_dest_dir+'/redstone_target_files.zip'
-	outfile = str(current_dir)+'/update.zip'
+
+	srcxmlfile = tmp_src_dir+'/redstone_fota_info.xml'
+	model,bldversion = parsexml(srcxmlfile)
+	now = str(time.strftime('%Y%m%d%H%M%S', time.localtime()))
+	difffilename = model+'_'+now+'.zip'
+
+	outfile = str(current_dir)+'/'+difffilename
 
 	cmdstr += ' -i '+srcimagezipfile+' '+destimagezipfile+' '+outfile
 	return cmdstr
@@ -210,6 +210,7 @@ rzx.grid(column=14, row=2, padx=EPAD)
 rother.grid(column=15, row=2, padx=EPAD)
 
 chkverbosevar = IntVar()
+chkverbosevar.set(1)
 chkblockvar = IntVar()
 chkverbose = Checkbutton(top, text='输出详情', variable=chkverbosevar, onvalue=1, \
 	offvalue=0, command=chkverbose_sel)
