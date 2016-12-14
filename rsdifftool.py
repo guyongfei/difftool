@@ -3,7 +3,6 @@
 from Tkinter import *
 import tkFileDialog
 import tkMessageBox
-import Zfile
 import os
 import sys
 import shutil
@@ -22,7 +21,7 @@ outfile = '' #the output file path
 file_opt = {
 	'defaultextension':'.zip',
 	'filetypes':[('all files','.*'),('zip files', '.zip')],
-	'initialdir':'/home/fay/code/difftool/zipfiles',
+	'initialdir':'~/',
 	'title':'this is a title'
 }
 
